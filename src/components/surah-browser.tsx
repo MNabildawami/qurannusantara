@@ -7,6 +7,7 @@ import { readLastRead, TRANSLATION_STORAGE_KEY } from "@/lib/bookmarks";
 import type { LastRead, SurahSummary } from "@/lib/types";
 import {
   getSurahDisplayName,
+  getSurahSlug,
   normalizeSurahNameLanguage,
   SURAH_NAME_LANGUAGE_EVENT,
   SURAH_NAME_LANGUAGE_STORAGE_KEY,
@@ -57,13 +58,6 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
     };
   }, []);
 
-  function changeNameLanguage(value: string) {
-    const next = normalizeSurahNameLanguage(value);
-    setNameLanguage(next);
-    window.localStorage.setItem(SURAH_NAME_LANGUAGE_STORAGE_KEY, next);
-    window.localStorage.setItem(TRANSLATION_STORAGE_KEY, next);
-    window.dispatchEvent(new Event(SURAH_NAME_LANGUAGE_EVENT));
-  }
 
   const filteredSurahs = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -91,7 +85,7 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
       </div>
 
       {lastRead && !loadError && (
-        <Link className="continue-reading" href={`/surah/${lastRead.surahNumber}#ayah-${lastRead.ayahNumber}`}>
+        <Link className="continue-reading" href={`/surah/${getSurahSlug(lastRead.surahNumber)}#ayah-${lastRead.ayahNumber}`}>
           <span className="continue-icon"><BookOpen size={18} /></span>
           <span className="continue-copy">
             <span className="continue-label">TERAKHIR DIBACA</span>
@@ -135,13 +129,6 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
               </button>
             ))}
           </div>
-          <label className="surah-name-language-select browser-name-language">
-            <span>Bahasa</span>
-            <select aria-label="Bahasa nama surah dan terjemahan" value={nameLanguage} onChange={(event) => changeNameLanguage(event.target.value)}>
-              <option value="id">Indonesia</option>
-              <option value="en">English</option>
-            </select>
-          </label>
           <span className="result-count">{loadError ? "Data tidak tersedia" : `${filteredSurahs.length} surah`}</span>
         </div>
       </div>
@@ -166,7 +153,7 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
           </div>
           <div className="surah-grid">
             {filteredSurahs.map((surah) => (
-              <Link className="surah-item" href={`/surah/${surah.number}`} key={surah.number}>
+              <Link className="surah-item" href={`/surah/${getSurahSlug(surah.number)}`} key={surah.number}>
                 <span className="surah-number">{surah.number}</span>
                 <span className="surah-item-copy">
                   <strong>{getSurahDisplayName(surah.number, surah.englishName, nameLanguage)}</strong>

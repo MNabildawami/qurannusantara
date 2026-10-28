@@ -7,6 +7,7 @@ import { readBookmarks, writeBookmarks } from "@/lib/bookmarks";
 import type { StoredBookmark } from "@/lib/types";
 import {
   getSurahDisplayName,
+  getSurahSlug,
   normalizeSurahNameLanguage,
   SURAH_NAME_LANGUAGE_EVENT,
   SURAH_NAME_LANGUAGE_STORAGE_KEY,
@@ -71,7 +72,7 @@ export function BookmarksPage() {
               </div>
               <p className="bookmark-arabic" dir="rtl" lang="ar">{bookmark.arabicText}</p>
               <p className="bookmark-translation">{bookmark.indonesianText || "Terjemahan belum tersedia dalam data tersimpan."}</p>
-              <Link href={`/surah/${bookmark.surahNumber}#ayah-${bookmark.ayahNumber}`} className="text-link">Buka {getSurahDisplayName(bookmark.surahNumber, bookmark.surahName, nameLanguage)} : {bookmark.ayahNumber} <span aria-hidden="true">→</span></Link>
+              <Link href={`/surah/${getSurahSlug(bookmark.surahNumber)}#ayah-${bookmark.ayahNumber}`} className="text-link">Buka {getSurahDisplayName(bookmark.surahNumber, bookmark.surahName, nameLanguage)} : {bookmark.ayahNumber} <span aria-hidden="true">→</span></Link>
             </article>
           ))}
         </div>

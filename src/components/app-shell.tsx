@@ -36,33 +36,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="header-actions">
             <ThemeToggle />
-            {isDedicatedChatPage ? (
-              <Link className="gus-trigger is-active" href="/gus-ai" aria-current="page">
-                <MessageCircle size={15} strokeWidth={1.8} />
-                <span>Gus AI</span>
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className={`gus-trigger${assistantOpen ? " is-active" : ""}`}
-                onClick={() => setAssistantOpen((open) => !open)}
-                aria-expanded={assistantOpen}
-                aria-controls={assistantOpen ? "gus-ai-panel" : undefined}
-              >
-                <MessageCircle size={15} strokeWidth={1.8} />
-                <span>Gus AI</span>
-                <span className="preview-badge">Pratinjau</span>
-              </button>
-            )}
+            <Link
+              className={"gus-trigger" + (isDedicatedChatPage ? " is-active" : "")}
+              href="/gus-ai"
+              aria-current={isDedicatedChatPage ? "page" : undefined}
+            >
+              <MessageCircle size={15} strokeWidth={1.8} />
+              <span>Chatbot</span>
+            </Link>
           </div>
         </div>
       </header>
 
       <div className="workspace">
         <main className="main-content">{children}</main>
-        {!isDedicatedChatPage && <GusAiPanel isOpen={assistantOpen} onClose={() => setAssistantOpen(false)} />}
+        {!isDedicatedChatPage && (
+          <>
+            <GusAiPanel isOpen={assistantOpen} onClose={() => setAssistantOpen(false)} />
+            {!assistantOpen && (
+              <button
+                type="button"
+                className="gus-preview-launcher"
+                aria-label="Buka pratinjau Gus AI"
+                title="Buka pratinjau Gus AI"
+                onClick={() => setAssistantOpen(true)}
+              >
+                <MessageCircle size={22} />
+              </button>
+            )}
+          </>
+        )}
       </div>
-      <footer className="site-footer">
+      {!isDedicatedChatPage && <footer className="site-footer">
         <div className="site-footer-inner">
           <Link href="/" className="footer-brand">
             <Image src="/brand/qurannusantara-mark.svg" alt="" width={26} height={26} aria-hidden="true" />
@@ -76,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <small>Gunakan terjemahan dan tafsir dari sumber tepercaya untuk pendalaman makna.</small>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

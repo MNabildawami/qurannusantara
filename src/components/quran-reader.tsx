@@ -96,6 +96,7 @@ import type {
 
 import {
   getSurahDisplayName,
+  getSurahSlug,
   normalizeSurahNameLanguage,
   SURAH_NAME_LANGUAGE_EVENT,
   SURAH_NAME_LANGUAGE_STORAGE_KEY,
@@ -131,11 +132,8 @@ function renderTajweedMarkup(markup: string): ReactNode[] {
         </span>,
       );
     } else {
-      parts.push(
-        <span className="tajweed-ayah-end" key={`tajweed-end-${index++}`}>
-          {stripMarkup(match[3] || "")}
-        </span>,
-      );
+      // The reader adds one consistent ayah-number marker after the Arabic text.
+      index += 1;
     }
     cursor = pattern.lastIndex;
   }
@@ -185,7 +183,7 @@ export function QuranReader({
   );
 
   const [endOfSurahOpen, setEndOfSurahOpen] = useState(false);
-  const [nextSurahNumber, setNextSurahNumber] = useState(arabic.number < 114 ? arabic.number + 1 : 1);
+  const [selectedAyahNumber, setSelectedAyahNumber] = useState(1);
 
   const surahSessionRef = useRef<number | null>(null);
 
@@ -619,7 +617,7 @@ QuranNusantara`;
 
           text: shareText,
 
-          url: `${window.location.origin}/surah/${arabic.number}#ayah-${ayahNumber}`,
+          url: `${window.location.origin}/surah/${getSurahSlug(arabic.number)}#ayah-${ayahNumber}`,
 
         });
 
@@ -647,7 +645,7 @@ QuranNusantara`;
         finishAudioSession(sessionId);
         surahSessionRef.current = null;
         lastScrolledAyahRef.current = null;
-        setNextSurahNumber(arabic.number < 114 ? arabic.number + 1 : 1);
+        setSelectedAyahNumber(1);
         setEndOfSurahOpen(true);
         return;
       }
@@ -819,6 +817,14 @@ QuranNusantara`;
   function handleRepeatFromBeginning() {
     setEndOfSurahOpen(false);
     void handleAyahPlayPause(0);
+  }
+
+  function handlePlaySelectedAyah() {
+    const index = arabic.ayahs.findIndex(
+      (ayah) => ayah.numberInSurah === selectedAyahNumber,
+    );
+    setEndOfSurahOpen(false);
+    void handleAyahPlayPause(index >= 0 ? index : 0);
   }
 
   return (
@@ -1287,7 +1293,7 @@ QuranNusantara`;
 
               className="button-secondary"
 
-              href={`/surah/${arabic.number - 1}`}
+              href={`/surah/${getSurahSlug(arabic.number - 1)}`}
 
               onClick={() => stopAudioPlayback()}
 
@@ -1317,7 +1323,7 @@ QuranNusantara`;
 
               className="button-primary"
 
-              href={`/surah/${arabic.number + 1}`}
+              href={`/surah/${getSurahSlug(arabic.number + 1)}`}
 
               onClick={() => stopAudioPlayback()}
 
@@ -1349,7 +1355,7 @@ QuranNusantara`;
               <p className="surah-end-copy">Kamu sudah sampai di ayat terakhir. Mau melanjutkan ke surah berikutnya atau mengulang bacaan?</p>
               <div className="surah-end-actions">
                 {arabic.number < 114 ? (
-                  <Link className="button-primary" href={`/surah/${arabic.number + 1}`} onClick={() => stopAudioPlayback()}>
+                  <Link className="button-primary" href={`/surah/${getSurahSlug(arabic.number + 1)}`} onClick={() => stopAudioPlayback()}>
                     Lanjut surah berikutnya <ChevronRight size={16} />
                   </Link>
                 ) : (
@@ -1360,15 +1366,21 @@ QuranNusantara`;
                 </button>
               </div>
               <div className="surah-end-select-row">
-                <label htmlFor="next-surah-choice">Atau pilih nomor surah</label>
-                <select id="next-surah-choice" value={nextSurahNumber} onChange={(event) => setNextSurahNumber(Number(event.target.value))}>
-                  {Array.from({ length: 114 }, (_, index) => index + 1).map((number) => (
-                    <option key={number} value={number}>Surah {number}</option>
+                <label htmlFor="selected-ayah-choice">Atau pilih ayat untuk mulai mengulang</label>
+                <select
+                  id="selected-ayah-choice"
+                  value={selectedAyahNumber}
+                  onChange={(event) => setSelectedAyahNumber(Number(event.target.value))}
+                >
+                  {arabic.ayahs.map((ayah) => (
+                    <option key={ayah.numberInSurah} value={ayah.numberInSurah}>
+                      Ayat {ayah.numberInSurah}
+                    </option>
                   ))}
                 </select>
-                <Link className="button-secondary" href={`/surah/${nextSurahNumber}`} onClick={() => stopAudioPlayback()}>
-                  Buka surah <ChevronRight size={15} />
-                </Link>
+                <button type="button" className="button-secondary" onClick={handlePlaySelectedAyah}>
+                  Putar dari ayat <ChevronRight size={15} />
+                </button>
               </div>
             </section>
           </div>

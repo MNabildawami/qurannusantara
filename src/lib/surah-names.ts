@@ -133,3 +133,28 @@ export function getSurahDisplayName(
   if (language === "en") return englishName;
   return INDONESIAN_SURAH_NAMES[number] || englishName;
 }
+
+
+function slugifySurahName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("en")
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function getSurahSlug(number: number): string {
+  return slugifySurahName(INDONESIAN_SURAH_NAMES[number] || ("surah-" + number));
+}
+
+export function getSurahNumberFromRoute(value: string): number | null {
+  const numeric = Number(value);
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 114) return numeric;
+  const wanted = slugifySurahName(decodeURIComponent(value));
+  for (let number = 1; number < INDONESIAN_SURAH_NAMES.length; number += 1) {
+    if (slugifySurahName(INDONESIAN_SURAH_NAMES[number]) === wanted) return number;
+  }
+  return null;
+}
