@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Bot, X } from "lucide-react";
+import Link from "next/link";
 
 interface GusAiPanelProps {
   isOpen: boolean;
@@ -53,8 +54,11 @@ export function GusAiPanel({ isOpen, onClose }: GusAiPanelProps) {
             ))}
           </div>
           <p className="gus-disclaimer">
-            Saat aktif, Gus AI akan membantu menemukan rujukan. Jawaban AI bukan pengganti sumber Al-Qur&apos;an, terjemahan, atau rujukan tafsir yang terverifikasi.
+            Mode pratinjau: backend AI belum diaktifkan. Jawaban nantinya perlu merujuk sumber Al-Qur&apos;an dan tafsir terverifikasi.
           </p>
+          <Link className="gus-full-page-link" href="/gus-ai">
+            Buka halaman Gus AI <ArrowUpRight size={15} />
+          </Link>
         </div>
 
         <form className="gus-composer" onSubmit={(event) => event.preventDefault()}>

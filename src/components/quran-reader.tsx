@@ -26,15 +26,10 @@ import {
 
   LoaderCircle,
 
-  Menu,
-
   X,
 
-  Search,
-
   RotateCcw,
-
-  Headphones,
+  BookOpenText,
 
 } from "lucide-react";
 
@@ -42,7 +37,6 @@ import {
 
   type ReactNode,
 
-  useCallback,
 
   useEffect,
 
@@ -53,8 +47,6 @@ import {
   useState,
 
 } from "react";
-
-import { AudioButton } from "@/components/audio-button";
 
 import {
 
@@ -155,20 +147,6 @@ function renderTajweedMarkup(markup: string): ReactNode[] {
   return parts;
 }
 
-type SurahItem = {
-
-  number: number;
-
-  name: string;
-
-  englishName: string;
-
-  englishNameTranslation: string;
-
-  numberOfAyahs: number;
-
-};
-
 export function QuranReader({
 
   content,
@@ -193,11 +171,6 @@ export function QuranReader({
 
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const [surahSearch, setSurahSearch] = useState("");
-
-  const [surahs, setSurahs] = useState<SurahItem[]>([]);
   const [surahNameLanguage, setSurahNameLanguage] =
     useState<SurahNameLanguage>("id");
   const [tajweedEnabled, setTajweedEnabled] = useState(true);
@@ -211,7 +184,8 @@ export function QuranReader({
 
   );
 
-  const [surahLoading, setSurahLoading] = useState(false);
+  const [endOfSurahOpen, setEndOfSurahOpen] = useState(false);
+  const [nextSurahNumber, setNextSurahNumber] = useState(arabic.number < 114 ? arabic.number + 1 : 1);
 
   const surahSessionRef = useRef<number | null>(null);
 
@@ -224,27 +198,25 @@ export function QuranReader({
   > | null>(null);
 
   useEffect(() => {
-    setBookmarks(readBookmarks());
-
-    const savedTranslation = window.localStorage.getItem(TRANSLATION_STORAGE_KEY);
-    if (savedTranslation === "en" || savedTranslation === "id") {
-      setTranslationLanguage(savedTranslation);
-    }
-
-    const syncSurahNameLanguage = () => {
-      setSurahNameLanguage(
-        normalizeSurahNameLanguage(
-          window.localStorage.getItem(SURAH_NAME_LANGUAGE_STORAGE_KEY),
-        ),
-      );
+    const syncDisplayLanguage = () => {
+      const savedTranslation = window.localStorage.getItem(TRANSLATION_STORAGE_KEY);
+      const savedNameLanguage = window.localStorage.getItem(SURAH_NAME_LANGUAGE_STORAGE_KEY);
+      const next = savedTranslation === "id" || savedTranslation === "en"
+        ? savedTranslation
+        : normalizeSurahNameLanguage(savedNameLanguage);
+      setTranslationLanguage(next);
+      setSurahNameLanguage(next);
     };
 
-    syncSurahNameLanguage();
-    window.addEventListener(SURAH_NAME_LANGUAGE_EVENT, syncSurahNameLanguage);
-    window.addEventListener("storage", syncSurahNameLanguage);
+    queueMicrotask(() => {
+      setBookmarks(readBookmarks());
+      syncDisplayLanguage();
+    });
+    window.addEventListener(SURAH_NAME_LANGUAGE_EVENT, syncDisplayLanguage);
+    window.addEventListener("storage", syncDisplayLanguage);
     return () => {
-      window.removeEventListener(SURAH_NAME_LANGUAGE_EVENT, syncSurahNameLanguage);
-      window.removeEventListener("storage", syncSurahNameLanguage);
+      window.removeEventListener(SURAH_NAME_LANGUAGE_EVENT, syncDisplayLanguage);
+      window.removeEventListener("storage", syncDisplayLanguage);
     };
   }, []);
 
@@ -264,70 +236,8 @@ export function QuranReader({
 
   }, []);
 
-  // Ambil daftar surah untuk sidebar.
-
-  useEffect(() => {
-
-    let cancelled = false;
-
-    async function loadSurahs() {
-
-      try {
-
-        const response = await fetch(
-
-          "https://api.alquran.cloud/v1/surah",
-
-        );
-
-        if (!response.ok) {
-
-          throw new Error("Daftar surah tidak tersedia.");
-
-        }
-
-        const payload = (await response.json()) as {
-
-          data?: SurahItem[];
-
-        };
-
-        if (!cancelled && Array.isArray(payload.data)) {
-
-          setSurahs(payload.data);
-
-        }
-
-      } catch {
-
-        if (!cancelled) {
-
-          setNotice(
-
-            "Daftar surah gagal dimuat. Periksa koneksi internet.",
-
-          );
-
-        }
-
-      }
-
-    }
-
-    void loadSurahs();
-
-    return () => {
-
-      cancelled = true;
-
-    };
-
-  }, []);
-
   useEffect(() => {
     const controller = new AbortController();
-    setTajweedByAyah({});
-    setTajweedLoadFailed(false);
 
     async function loadTajweed() {
       try {
@@ -346,6 +256,7 @@ export function QuranReader({
           }
         }
         if (Object.keys(next).length === 0) throw new Error("Penanda tajwid kosong.");
+        setTajweedLoadFailed(false);
         setTajweedByAyah(next);
       } catch {
         if (!controller.signal.aborted) setTajweedLoadFailed(true);
@@ -389,53 +300,16 @@ export function QuranReader({
 
   );
 
-  const filteredSurahs = useMemo(() => {
-    const query = surahSearch.trim().toLocaleLowerCase();
-    if (!query) return surahs;
-    return surahs.filter((surah) => {
-      const displayName = getSurahDisplayName(
-        surah.number,
-        surah.englishName,
-        surahNameLanguage,
-      );
-      return (
-        displayName.toLocaleLowerCase().includes(query) ||
-        surah.englishName.toLocaleLowerCase().includes(query) ||
-        surah.englishNameTranslation.toLocaleLowerCase().includes(query) ||
-        String(surah.number).includes(query) ||
-        surah.name.includes(surahSearch.trim())
-      );
-    });
-  }, [surahs, surahSearch, surahNameLanguage]);
-
   const isSurahMode = playback.mode === "surah";
 
-  // Mini-player mengikuti audio ayat tunggal maupun audio satu surah.
-  const surahPlaying =
-
-    playback.mode !== null && playback.status === "playing";
-
-  const surahActive =
-
-    playback.mode !== null && playback.status !== "stopped";
-
   const currentAyah =
-
     playback.mode === "surah"
-
       ? playback.localAyahNumber ?? 0
-
       : playback.mode === "single"
-
         ? arabic.ayahs.find(
             (ayah) => ayah.number === playback.globalAyahNumber,
           )?.numberInSurah ?? playback.localAyahNumber ?? 0
-
         : 0;
-
-  const currentAudioIsLoading =
-
-    playback.mode !== null && playback.status === "loading";
 
   // Perbarui riwayat bacaan dan ikuti ayat aktif.
 
@@ -633,9 +507,11 @@ export function QuranReader({
 
   }
 
-  function updateSurahNameLanguage(value: string) {
+  function updateDisplayLanguage(value: string) {
     const next = normalizeSurahNameLanguage(value);
+    setTranslationLanguage(next);
     setSurahNameLanguage(next);
+    window.localStorage.setItem(TRANSLATION_STORAGE_KEY, next);
     window.localStorage.setItem(SURAH_NAME_LANGUAGE_STORAGE_KEY, next);
     window.dispatchEvent(new Event(SURAH_NAME_LANGUAGE_EVENT));
   }
@@ -761,24 +637,19 @@ QuranNusantara`;
 
   }
 
-  const playSurahAyah = useCallback(
-
-    async (index: number, sessionId: number) => {
+  async function playSurahAyah(index: number, sessionId: number) {
 
       if (!isAudioSessionCurrent(sessionId)) return;
 
       // Surah selesai.
 
       if (index >= arabic.ayahs.length) {
-
         finishAudioSession(sessionId);
-
         surahSessionRef.current = null;
-
         lastScrolledAyahRef.current = null;
-
+        setNextSurahNumber(arabic.number < 114 ? arabic.number + 1 : 1);
+        setEndOfSurahOpen(true);
         return;
-
       }
 
       const ayah = arabic.ayahs[index];
@@ -899,385 +770,81 @@ QuranNusantara`;
 
       }
 
-    },
-
-    [arabic.ayahs, arabic.number],
-
-  );
-
-  function startSurahFromBeginning() {
-
-    if (!arabic.ayahs.length) return;
-
-    const firstAyah = arabic.ayahs[0];
-
-    const sessionId = beginAudioSession("surah", {
-
-      surahNumber: arabic.number,
-
-      localAyahNumber: 1,
-
-      globalAyahNumber: firstAyah.number,
-
-      totalAyahs: arabic.ayahs.length,
-
-    });
-
-    surahSessionRef.current = sessionId;
-
-    lastScrolledAyahRef.current = null;
-
-    setSurahLoading(true);
-
-    void playSurahAyah(0, sessionId).finally(() => {
-
-      if (isAudioSessionCurrent(sessionId)) {
-
-        setSurahLoading(false);
-
-      }
-
-    });
-
   }
 
-  async function handleSurahPlayPause() {
+  async function handleAyahPlayPause(index: number) {
+    const ayah = arabic.ayahs[index];
+    if (!ayah) return;
 
     const current = getAudioPlaybackState();
+    const isSameAyah = current.mode !== null && current.globalAyahNumber === ayah.number;
 
-    // Jika mini-player sedang mengendalikan audio ayat atau surah,
-    // tombol ini menjeda atau melanjutkan audio yang sama.
-    if (current.mode !== null && current.status === "playing") {
-
+    if (isSameAyah && current.status === "playing") {
       pauseActiveAudio();
-
       return;
-
     }
 
-    if (current.mode !== null && current.status === "paused") {
-
+    if (isSameAyah && current.status === "paused") {
       try {
-
         await resumeActiveAudio();
-
       } catch {
-
         showNotice("Audio gagal dilanjutkan.");
-
       }
-
       return;
-
     }
 
-    // Ketika tidak ada audio aktif, mulai putar seluruh surah dari ayat 1.
-    startSurahFromBeginning();
+    if (isSameAyah && current.status === "loading") return;
 
-  }
+    const sessionId = beginAudioSession("surah", {
+      surahNumber: arabic.number,
+      localAyahNumber: ayah.numberInSurah,
+      globalAyahNumber: ayah.number,
+      totalAyahs: arabic.ayahs.length,
+    });
 
-  function handleStopSurah() {
-
-    stopAudioPlayback();
-
-    surahSessionRef.current = null;
-
+    setEndOfSurahOpen(false);
+    surahSessionRef.current = sessionId;
     lastScrolledAyahRef.current = null;
-
-    setSurahLoading(false);
-
-    showNotice("Pemutaran surah dihentikan.");
-
+    void playSurahAyah(index, sessionId);
   }
 
-  function handleRepeatSurah() {
+  function handleStopAudio() {
+    stopAudioPlayback();
+    surahSessionRef.current = null;
+    lastScrolledAyahRef.current = null;
+    setEndOfSurahOpen(false);
+    showNotice("Pemutaran audio dihentikan.");
+  }
 
-    // Tombol ulang selalu memulai lagi dari ayat pertama.
-
-    startSurahFromBeginning();
-
+  function handleRepeatFromBeginning() {
+    setEndOfSurahOpen(false);
+    void handleAyahPlayPause(0);
   }
 
   return (
 
-    <div
-
-      className={`reader-layout${sidebarOpen ? " sidebar-open" : ""}`}
-
-    >
-
-      {/* Sidebar navigasi surah */}
-
-      {sidebarOpen && (
-
-        <button
-
-          type="button"
-
-          className="surah-sidebar-backdrop"
-
-          aria-label="Tutup sidebar"
-
-          onClick={() => setSidebarOpen(false)}
-
-        />
-
-      )}
-
-      <aside
-
-        className={`surah-sidebar${sidebarOpen ? " is-open" : ""}`}
-
-        aria-label="Navigasi daftar surah"
-
-        aria-hidden={!sidebarOpen}
-
-      >
-
-        <div className="surah-sidebar-header">
-
-          <div>
-
-            <span className="surah-sidebar-eyebrow">
-
-              QURANNUSANTARA
-
-            </span>
-
-            <h2>Daftar Surah</h2>
-
-          </div>
-
-          <button
-
-            type="button"
-
-            className="sidebar-close-button"
-
-            onClick={() => setSidebarOpen(false)}
-
-            aria-label="Tutup sidebar"
-
-          >
-
-            <X size={20} />
-
-          </button>
-
-        </div>
-
-        <label className="surah-search">
-
-          <Search size={17} />
-
-          <input
-
-            type="search"
-
-            placeholder="Cari nama surah..."
-
-            value={surahSearch}
-
-            onChange={(event) =>
-
-              setSurahSearch(event.target.value)
-
-            }
-
-          />
-
-        </label>
-
-        <div className="surah-sidebar-list">
-
-          {surahs.length === 0 ? (
-
-            <p className="surah-sidebar-empty">
-
-              Memuat daftar surah...
-
-            </p>
-
-          ) : filteredSurahs.length === 0 ? (
-
-            <p className="surah-sidebar-empty">
-
-              Surah tidak ditemukan.
-
-            </p>
-
-          ) : (
-
-            filteredSurahs.map((surah) => {
-
-              const isCurrent =
-
-                surah.number === arabic.number;
-
-              return (
-
-                <Link
-
-                  key={surah.number}
-
-                  href={`/surah/${surah.number}`}
-
-                  className={`surah-sidebar-item${isCurrent ? " is-current" : ""}`}
-
-                  aria-current={isCurrent ? "page" : undefined}
-
-                  onClick={() => {
-
-                    setSidebarOpen(false);
-
-                    stopAudioPlayback();
-
-                  }}
-
-                >
-
-                  <span className="surah-sidebar-number">
-
-                    {surah.number}
-
-                  </span>
-
-                  <span className="surah-sidebar-name">
-
-                    <strong>{getSurahDisplayName(surah.number, surah.englishName, surahNameLanguage)}</strong>
-
-                    <small>
-
-                      {surah.englishNameTranslation}
-
-                    </small>
-
-                  </span>
-
-                  <span className="surah-sidebar-arabic" lang="ar">
-
-                    {surah.name}
-
-                  </span>
-
-                </Link>
-
-              );
-
-            })
-
-          )}
-
-        </div>
-
-      </aside>
-
+    <div className="reader-layout">
       <article className="reader-page">
 
         <div className="reader-toolbar">
 
           <div className="reader-toolbar-leading">
-
-            <button
-
-              type="button"
-
-              className="sidebar-toggle-button"
-
-              onClick={() =>
-
-                setSidebarOpen((open) => !open)
-
-              }
-
-              aria-label={
-
-                sidebarOpen
-
-                  ? "Tutup daftar surah"
-
-                  : "Buka daftar surah"
-
-              }
-
-              aria-expanded={sidebarOpen}
-
-            >
-
-              {sidebarOpen ? (
-
-                <X size={19} />
-
-              ) : (
-
-                <Menu size={19} />
-
-              )}
-
-              <span>Surah</span>
-
-            </button>
-
             <Link href="/" className="back-link">
-
               <ChevronLeft size={16} />
-
-              Beranda
-
+              Daftar Surah
             </Link>
-
           </div>
 
           <div className="reader-toolbar-actions">
 
             <label className="translation-select-label">
-
-              <span className="sr-only">
-
-                Pilih bahasa terjemahan
-
-              </span>
-
+              <span className="sr-only">Pilih bahasa tampilan</span>
               <select
-
                 value={translationLanguage}
-
-                onChange={(event) => {
-
-                  const value =
-
-                    event.target.value === "en" ? "en" : "id";
-
-                  setTranslationLanguage(value);
-
-                  window.localStorage.setItem(
-
-                    TRANSLATION_STORAGE_KEY,
-
-                    value,
-
-                  );
-
-                }}
-
+                onChange={(event) => updateDisplayLanguage(event.target.value)}
+                aria-label="Bahasa terjemahan dan nama surah"
               >
-
-                <option value="id">Indonesia</option>
-
-                <option value="en">English</option>
-
-              </select>
-
-            </label>
-
-            <label className="surah-name-language-select">
-              <span className="sr-only">Pilih ejaan nama surah</span>
-              <select
-                value={surahNameLanguage}
-                onChange={(event) => updateSurahNameLanguage(event.target.value)}
-                aria-label="Ejaan nama surah"
-              >
-                <option value="id">Nama Indonesia</option>
+                <option value="id">Bahasa Indonesia</option>
                 <option value="en">English</option>
               </select>
             </label>
@@ -1384,11 +951,9 @@ QuranNusantara`;
 
           <h1>{getSurahDisplayName(arabic.number, arabic.englishName, surahNameLanguage)}</h1>
 
-          <p className="surah-english-name">
-
-            {arabic.englishNameTranslation}
-
-          </p>
+          {translationLanguage === "en" && (
+            <p className="surah-english-name">{arabic.englishNameTranslation}</p>
+          )}
 
           <p
 
@@ -1406,145 +971,21 @@ QuranNusantara`;
 
         </header>
 
-        {/* Kontrol pemutaran seluruh surah */}
-
-        <section
-
-          className={`surah-audio-player${surahActive ? " is-active" : ""}`}
-
-          aria-label="Pemutar audio Al-Qur’an"
-
-        >
-
-          <div className="surah-audio-info">
-
-            <span className="surah-audio-label">
-
-              <Headphones size={14} />
-
-              PEMUTAR AL-QUR’AN
-
-            </span>
-
-            <strong>{getSurahDisplayName(arabic.number, arabic.englishName, surahNameLanguage)}</strong>
-
-            <span
-
-              className="surah-audio-progress"
-
-              aria-live="polite"
-
-            >
-
-              {surahActive && currentAyah > 0
-
-                ? playback.mode === "single"
-                  ? `Sedang diputar: Ayat ${currentAyah}`
-                  : `Sedang diputar: Ayat ${currentAyah} dari ${arabic.ayahs.length}`
-
-                : "Putar seluruh ayat secara berurutan"}
-
-            </span>
-
-          </div>
-
-          <div className="surah-audio-actions">
-
-            <button
-
-              type="button"
-
-              className="button-primary"
-
-              onClick={() => void handleSurahPlayPause()}
-
-              disabled={surahLoading || currentAudioIsLoading}
-
-            >
-
-              {surahLoading || currentAudioIsLoading ? (
-
-                <LoaderCircle
-
-                  size={16}
-
-                  className="spin"
-
-                />
-
-              ) : surahPlaying ? (
-
-                <Pause size={16} />
-
-              ) : (
-
-                <Play size={16} />
-
-              )}
-
-              {surahPlaying
-
-                ? "Jeda"
-
-                : surahActive
-
-                  ? "Lanjutkan"
-
-                  : "Putar Surah"}
-
-            </button>
-
-            <button
-
-              type="button"
-
-              className="button-secondary"
-
-              onClick={handleRepeatSurah}
-
-              title="Putar ulang dari ayat pertama"
-
-              aria-label="Putar ulang dari awal"
-
-              disabled={
-
-                surahLoading || currentAudioIsLoading
-
-              }
-
-            >
-
-              <RotateCcw size={16} />
-
-              Ulang dari awal
-
-            </button>
-
-            <button
-
-              type="button"
-
-              className="button-secondary"
-
-              onClick={handleStopSurah}
-
-              title="Berhenti"
-
-              aria-label="Berhenti memutar audio"
-
-              disabled={!surahActive}
-
-            >
-
-              <Square size={15} />
-
-              Berhenti
-
-            </button>
-
-          </div>
-
-        </section>
+        {arabic.number !== 1 && arabic.number !== 9 && (
+          <section className="bismillah-intro" aria-label="Basmalah">
+            <p className="bismillah-arabic" lang="ar" dir="rtl">
+              بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+            </p>
+            <p className="bismillah-transliteration" lang="en-Latn">
+              Bismillāhir-raḥmānir-raḥīm
+            </p>
+            <p className="bismillah-translation">
+              {translationLanguage === "id"
+                ? "Dengan nama Allah Yang Maha Pengasih lagi Maha Penyayang."
+                : "In the name of Allah, the Most Compassionate, the Most Merciful."}
+            </p>
+          </section>
+        )}
 
         {notice && (
 
@@ -1594,7 +1035,7 @@ QuranNusantara`;
 
               transliteratedAyah,
 
-            }) => {
+            }, audioIndex) => {
 
               if (!translatedAyah) return null;
 
@@ -1609,12 +1050,11 @@ QuranNusantara`;
               );
 
               const isCurrentAudioAyah =
-
                 playback.globalAyahNumber === arabicAyah.number &&
-
                 playback.mode !== null &&
-
                 playback.status !== "stopped";
+              const isCurrentAudioPlaying = isCurrentAudioAyah && playback.status === "playing";
+              const isCurrentAudioLoading = isCurrentAudioAyah && playback.status === "loading";
 
               return (
 
@@ -1631,21 +1071,7 @@ QuranNusantara`;
                 >
 
                   <div className="verse-meta-row">
-
-                    <span className="ayah-number">
-
-                      {arabic.number}:{arabicAyah.numberInSurah}
-
-                    </span>
-
                     <div className="verse-actions">
-
-                      <AudioButton
-
-                        ayahNumber={arabicAyah.number}
-
-                      />
-
                       <button
 
                         type="button"
@@ -1811,6 +1237,32 @@ QuranNusantara`;
 
                   </p>
 
+                  <div className="verse-footer-controls">
+                    <button
+                      type="button"
+                      className={`verse-audio-button${isCurrentAudioPlaying ? " is-playing" : ""}`}
+                      onClick={() => void handleAyahPlayPause(audioIndex)}
+                      disabled={isCurrentAudioLoading}
+                      aria-label={isCurrentAudioPlaying ? "Jeda audio dari ayat ini" : "Putar mulai ayat ini sampai akhir surah"}
+                      title="Putar ayat ini lalu lanjutkan hingga akhir surah"
+                    >
+                      {isCurrentAudioLoading ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : isCurrentAudioPlaying ? (
+                        <Pause size={16} />
+                      ) : (
+                        <Play size={16} />
+                      )}
+                      <span>{isCurrentAudioPlaying ? "Jeda" : isCurrentAudioLoading ? "Memuat audio…" : playback.globalAyahNumber === arabicAyah.number && playback.status === "paused" ? "Lanjutkan" : "Putar dari ayat ini"}</span>
+                    </button>
+                    {isCurrentAudioAyah && (
+                      <button type="button" className="verse-stop-button" onClick={handleStopAudio}>
+                        <Square size={14} />
+                        <span>Berhenti</span>
+                      </button>
+                    )}
+                  </div>
+
                 </section>
 
               );
@@ -1884,6 +1336,43 @@ QuranNusantara`;
           )}
 
         </nav>
+
+        {endOfSurahOpen && (
+          <div className="surah-end-overlay" role="presentation">
+            <section className="surah-end-dialog" role="dialog" aria-modal="true" aria-labelledby="surah-end-title">
+              <button type="button" className="surah-end-close" onClick={() => setEndOfSurahOpen(false)} aria-label="Tutup dialog">
+                <X size={18} />
+              </button>
+              <span className="surah-end-icon"><BookOpenText size={22} /></span>
+              <p className="eyebrow">PEMUTARAN SELESAI</p>
+              <h2 id="surah-end-title">Surah {getSurahDisplayName(arabic.number, arabic.englishName, surahNameLanguage)} selesai dibaca</h2>
+              <p className="surah-end-copy">Kamu sudah sampai di ayat terakhir. Mau melanjutkan ke surah berikutnya atau mengulang bacaan?</p>
+              <div className="surah-end-actions">
+                {arabic.number < 114 ? (
+                  <Link className="button-primary" href={`/surah/${arabic.number + 1}`} onClick={() => stopAudioPlayback()}>
+                    Lanjut surah berikutnya <ChevronRight size={16} />
+                  </Link>
+                ) : (
+                  <span className="surah-end-last-note">Ini adalah surah terakhir dalam Al-Qur&apos;an.</span>
+                )}
+                <button type="button" className="button-secondary" onClick={handleRepeatFromBeginning}>
+                  <RotateCcw size={15} /> Ulang dari awal
+                </button>
+              </div>
+              <div className="surah-end-select-row">
+                <label htmlFor="next-surah-choice">Atau pilih nomor surah</label>
+                <select id="next-surah-choice" value={nextSurahNumber} onChange={(event) => setNextSurahNumber(Number(event.target.value))}>
+                  {Array.from({ length: 114 }, (_, index) => index + 1).map((number) => (
+                    <option key={number} value={number}>Surah {number}</option>
+                  ))}
+                </select>
+                <Link className="button-secondary" href={`/surah/${nextSurahNumber}`} onClick={() => stopAudioPlayback()}>
+                  Buka surah <ChevronRight size={15} />
+                </Link>
+              </div>
+            </section>
+          </div>
+        )}
 
       </article>
 

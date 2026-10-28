@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BookOpen, Search, RotateCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { readLastRead } from "@/lib/bookmarks";
+import { readLastRead, TRANSLATION_STORAGE_KEY } from "@/lib/bookmarks";
 import type { LastRead, SurahSummary } from "@/lib/types";
 import {
   getSurahDisplayName,
@@ -33,16 +33,18 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
   const [nameLanguage, setNameLanguage] = useState<SurahNameLanguage>("id");
 
   useEffect(() => {
-    setLastRead(readLastRead());
     const updateLastRead = () => setLastRead(readLastRead());
     const updateNameLanguage = () => {
-      setNameLanguage(
-        normalizeSurahNameLanguage(
-          window.localStorage.getItem(SURAH_NAME_LANGUAGE_STORAGE_KEY),
-        ),
-      );
+      const savedTranslation = window.localStorage.getItem(TRANSLATION_STORAGE_KEY);
+      const savedName = window.localStorage.getItem(SURAH_NAME_LANGUAGE_STORAGE_KEY);
+      setNameLanguage(savedTranslation === "id" || savedTranslation === "en"
+        ? savedTranslation
+        : normalizeSurahNameLanguage(savedName));
     };
-    updateNameLanguage();
+    queueMicrotask(() => {
+      setLastRead(readLastRead());
+      updateNameLanguage();
+    });
     window.addEventListener("qn-last-read-updated", updateLastRead);
     window.addEventListener("storage", updateLastRead);
     window.addEventListener("storage", updateNameLanguage);
@@ -59,6 +61,7 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
     const next = normalizeSurahNameLanguage(value);
     setNameLanguage(next);
     window.localStorage.setItem(SURAH_NAME_LANGUAGE_STORAGE_KEY, next);
+    window.localStorage.setItem(TRANSLATION_STORAGE_KEY, next);
     window.dispatchEvent(new Event(SURAH_NAME_LANGUAGE_EVENT));
   }
 
@@ -133,8 +136,8 @@ export function SurahBrowser({ surahs, loadError }: SurahBrowserProps) {
             ))}
           </div>
           <label className="surah-name-language-select browser-name-language">
-            <span>Nama surah</span>
-            <select aria-label="Ejaan nama surah" value={nameLanguage} onChange={(event) => changeNameLanguage(event.target.value)}>
+            <span>Bahasa</span>
+            <select aria-label="Bahasa nama surah dan terjemahan" value={nameLanguage} onChange={(event) => changeNameLanguage(event.target.value)}>
               <option value="id">Indonesia</option>
               <option value="en">English</option>
             </select>
