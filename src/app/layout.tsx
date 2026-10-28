@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   },
   description: "Pengalaman membaca Al-Qur'an yang tenang, responsif, dan mudah digunakan.",
   applicationName: "QuranNusantara",
+  icons: {
+    icon: [{ url: "/brand/qurannusantara-favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/brand/qurannusantara-favicon.svg",
+    apple: "/brand/qurannusantara-app-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -110,6 +110,11 @@ import {
   type SurahNameLanguage,
 } from "@/lib/surah-names";
 
+function toArabicIndicNumber(value: number): string {
+  const digits = "٠١٢٣٤٥٦٧٨٩";
+  return String(value).replace(/\d/g, (digit) => digits[Number(digit)]);
+}
+
 function stripMarkup(value: string): string {
   return value.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ");
 }
@@ -174,7 +179,7 @@ export function QuranReader({
 
 }) {
 
-  const { arabic, indonesian, english } = content;
+  const { arabic, indonesian, english, transliteration } = content;
 
   const [translationLanguage, setTranslationLanguage] =
 
@@ -366,6 +371,8 @@ export function QuranReader({
 
         indonesianAyah: indonesian.ayahs[index],
 
+        transliteratedAyah: transliteration?.ayahs[index],
+
       })),
 
     [
@@ -375,6 +382,8 @@ export function QuranReader({
       indonesian.ayahs,
 
       selectedTranslation.ayahs,
+
+      transliteration?.ayahs,
 
     ],
 
@@ -1583,6 +1592,8 @@ QuranNusantara`;
 
               indonesianAyah,
 
+              transliteratedAyah,
+
             }) => {
 
               if (!translatedAyah) return null;
@@ -1762,7 +1773,21 @@ QuranNusantara`;
                           tajweedByAyah[`${arabic.number}:${arabicAyah.numberInSurah}`],
                         )
                       : arabicAyah.text}
+                    {" "}
+                    <span
+                      className="verse-end-marker"
+                      role="img"
+                      aria-label={`Nomor ayat ${arabicAyah.numberInSurah}`}
+                    >
+                      {toArabicIndicNumber(arabicAyah.numberInSurah)}
+                    </span>
                   </p>
+
+                  {transliteratedAyah?.text && (
+                    <p className="verse-transliteration" lang="en-Latn" dir="ltr">
+                      {transliteratedAyah.text}
+                    </p>
+                  )}
 
                   <p
 
@@ -1770,7 +1795,7 @@ QuranNusantara`;
 
                     style={{
 
-                      fontSize: `${18 * fontScale}px`,
+                      fontSize: `${16 * fontScale}px`,
 
                     }}
 

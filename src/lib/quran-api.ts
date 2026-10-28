@@ -40,8 +40,24 @@ export async function getSurahContent(number: number): Promise<SurahContent> {
   const arabicEdition = configuredEdition("QURAN_ARABIC_EDITION", "quran-uthmani");
   const indonesianEdition = configuredEdition("QURAN_TRANSLATION_ID_EDITION", "id.indonesian");
   const englishEdition = configuredEdition("QURAN_TRANSLATION_EN_EDITION", "en.sahih");
+  const transliterationEdition = configuredEdition(
+    "QURAN_TRANSLITERATION_EDITION",
+    "en.transliteration",
+  );
   const editions = [arabicEdition, indonesianEdition, englishEdition].join(",");
-  const data = await readApiJson<SurahEdition[]>(`${apiBaseUrl()}/surah/${number}/editions/${editions}`, 86400);
+
+  // Transliterasi adalah tambahan opsional: jika edisinya sedang tidak tersedia,
+  // halaman baca tetap harus dapat menampilkan teks Arab dan terjemahan.
+  const [data, transliteration] = await Promise.all([
+    readApiJson<SurahEdition[]>(
+      `${apiBaseUrl()}/surah/${number}/editions/${editions}`,
+      86400,
+    ),
+    readApiJson<SurahEdition>(
+      `${apiBaseUrl()}/surah/${number}/${transliterationEdition}`,
+      86400,
+    ).catch(() => null),
+  ]);
 
   if (!Array.isArray(data) || data.length !== 3) {
     throw new Error("Quran API did not return the three requested editions.");
@@ -60,7 +76,17 @@ export async function getSurahContent(number: number): Promise<SurahContent> {
     throw new Error("The requested Quran editions do not align by ayah count.");
   }
 
-  return { arabic, indonesian, english };
+  const alignedTransliteration =
+    transliteration?.ayahs?.length === arabic.ayahs.length
+      ? transliteration
+      : undefined;
+
+  return {
+    arabic,
+    indonesian,
+    english,
+    transliteration: alignedTransliteration,
+  };
 }
 
 export async function getAyahAudioUrl(globalAyahNumber: number): Promise<string> {

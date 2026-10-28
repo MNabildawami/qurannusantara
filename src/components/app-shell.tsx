@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { BookMarked, BookOpenText, MessageCircle } from "lucide-react";
 import { useState } from "react";
@@ -14,7 +15,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="site-header">
         <div className="header-inner">
           <Link className="wordmark" href="/" aria-label="QuranNusantara, beranda">
-            <span className="wordmark-mark" aria-hidden="true">•</span>
+            <Image
+              src="/brand/qurannusantara-mark.svg"
+              alt=""
+              aria-hidden="true"
+              className="wordmark-logo"
+              width={36}
+              height={36}
+              priority
+            />
             <span>QuranNusantara</span>
           </Link>
           <span className="brand-caption">BACAAN DIGITAL NUSANTARA</span>

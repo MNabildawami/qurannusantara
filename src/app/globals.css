@@ -1906,3 +1906,178 @@ h1, h2, h3 { color: var(--text); }
     font-size: 10px;
   }
 }
+
+
+/* ================================================================
+   READER V2 — tata letak ayat seperti referensi: Arab di kanan,
+   transliterasi teal, lalu terjemahan dengan pemisah tipis.
+   ================================================================ */
+.reader-page {
+  width: min(calc(100% - 48px), 1000px);
+}
+
+.verse-list {
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.verse-block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 20px 24px 23px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface-raised);
+  text-align: left;
+  box-shadow: none;
+}
+
+.verse-meta-row {
+  display: flex;
+  width: 100%;
+  min-height: 25px;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+/* Nomor ayat sekarang menempel pada teks Arab seperti penanda mushaf. */
+.verse-meta-row > .ayah-number {
+  display: none;
+}
+
+.verse-actions {
+  gap: 3px;
+  opacity: 0.72;
+}
+
+.verse-action {
+  width: 27px;
+  height: 27px;
+}
+
+.verse-arabic {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 7px;
+  color: var(--text);
+  font-family: var(--font-arabic);
+  font-size: clamp(34px, 3.3vw, 42px);
+  font-weight: 400;
+  line-height: 2;
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+.verse-end-marker {
+  display: inline-flex;
+  min-width: 1.65em;
+  height: 1.65em;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 0.28em;
+  padding: 0 0.1em;
+  border: 1px solid #b87951;
+  border-radius: 50%;
+  color: #b87951;
+  font-family: var(--font-arabic);
+  font-size: 0.48em;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.verse-transliteration {
+  width: 100%;
+  max-width: none;
+  margin: 0 0 7px;
+  color: #008b87;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.7;
+  letter-spacing: 0.005em;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.verse-translation {
+  width: 100%;
+  max-width: none;
+  align-self: stretch;
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.75;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.verse-block.is-audio-playing {
+  border-radius: 0;
+  background: var(--surface-selected);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.verse-block.is-audio-playing .verse-arabic {
+  text-shadow: none;
+}
+
+/* Mini-player ikut lebar kolom baca apabila panel Gus AI terbuka.
+   Lebar panel Gus AI pada desktop ialah 350px + margin kanan 18px. */
+.surah-audio-player {
+  transition: width 180ms ease, left 180ms ease, padding 180ms ease;
+}
+
+@media (min-width: 761px) {
+  .app-frame.assistant-open .surah-audio-player {
+    left: calc((100vw - 368px) / 2);
+    width: min(1280px, calc(100vw - 416px));
+  }
+}
+
+@media (max-width: 760px) {
+  .reader-page {
+    width: calc(100% - 28px);
+  }
+
+  .verse-block {
+    padding: 18px 14px 21px;
+  }
+
+  .verse-arabic {
+    font-size: clamp(30px, 7.5vw, 38px);
+    line-height: 2;
+  }
+
+  .verse-transliteration {
+    font-size: 14px;
+  }
+
+  .verse-translation {
+    font-size: 15px;
+  }
+
+  /* Gus AI menjadi layar penuh di ponsel; player tidak boleh menutupi panel. */
+  .app-frame.assistant-open .surah-audio-player {
+    z-index: 60;
+  }
+}
+
+
+/* Identitas visual QuranNusantara: ikon SVG pada header. */
+.wordmark-logo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+@media (max-width: 700px) {
+  .wordmark-logo { width: 28px; height: 28px; }
+}

@@ -31,6 +31,8 @@ export interface SurahContent {
   arabic: SurahEdition;
   indonesian: SurahEdition;
   english: SurahEdition;
+  /** Transliterasi Latin, jika edisi API tersedia. */
+  transliteration?: SurahEdition;
 }
 
 export interface StoredBookmark {
