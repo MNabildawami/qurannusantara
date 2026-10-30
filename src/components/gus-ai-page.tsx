@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { sendGusAiMessage } from "@/lib/gus-ai-client";
+import { GusAiMarkdown } from "@/components/gus-ai-markdown";
 
 type ChatRole = "user" | "assistant";
 
@@ -284,7 +285,7 @@ export function GusAiPage() {
                     {message.role === "assistant" && <span className="gus-message-avatar"><Bot size={17} /></span>}
                     <div className="gus-message-body">
                       <div className="gus-message-role">{message.role === "user" ? "Kamu" : "Gus AI"}<time>{formatTime(message.createdAt)}</time></div>
-                      <p>{message.content}</p>
+                      {message.role === "assistant" ? <GusAiMarkdown content={message.content} /> : <p>{message.content}</p>}
                     </div>
                   </article>
                 ))}
