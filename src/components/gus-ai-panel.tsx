@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Bot, LoaderCircle, MessageCircle, Send, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { sendGusAiMessage } from "@/lib/gus-ai-client";
+import { GusAiMarkdown } from "@/components/gus-ai-markdown";
 
 interface GusAiPanelProps { isOpen: boolean; onClose: () => void; }
 type PreviewMessage = { id: string; role: "user" | "assistant"; content: string };
@@ -61,7 +62,7 @@ export function GusAiPanel({ isOpen, onClose }: GusAiPanelProps) {
           {messages.map((message) => (
             <article key={message.id} className={"gus-preview-message is-" + message.role}>
               {message.role === "assistant" && <span className="gus-preview-avatar"><Bot size={15} /></span>}
-              <p>{message.content}</p>
+              {message.role === "assistant" ? <GusAiMarkdown content={message.content} /> : <p>{message.content}</p>}
             </article>
           ))}
           {isSending && (
