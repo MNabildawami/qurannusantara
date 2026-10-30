@@ -2452,3 +2452,16 @@ h1, h2, h3 { color: var(--text); }
   .surah-end-select-row { grid-template-columns: 1fr; }
   .surah-end-select-row > label { grid-column: auto; }
 }
+
+/* Safe Markdown rendering for Gus AI responses. */
+.gus-ai-markdown { display: flex; min-width: 0; flex-direction: column; gap: 8px; overflow-wrap: anywhere; }
+.gus-ai-markdown p { margin: 0; color: var(--text); font-size: inherit; line-height: inherit; white-space: pre-wrap; }
+.gus-ai-markdown strong { font-weight: 750; }
+.gus-ai-markdown em { font-style: italic; }
+.gus-ai-markdown h3, .gus-ai-markdown h4, .gus-ai-markdown h5 { margin: 3px 0 0; color: var(--text); font-size: 1.04em; font-weight: 750; line-height: 1.5; }
+.gus-ai-markdown ul, .gus-ai-markdown ol { display: flex; flex-direction: column; gap: 5px; margin: 0; padding-left: 1.35rem; color: var(--text); font-size: inherit; line-height: inherit; }
+.gus-ai-markdown li { padding-left: 2px; }
+.gus-ai-markdown blockquote { margin: 0; padding: 5px 0 5px 12px; border-left: 2px solid var(--primary); color: var(--text-muted); }
+.gus-ai-markdown code { padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em; }
+.gus-preview-message.is-assistant .gus-ai-markdown { padding: 11px 13px; border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; background: var(--surface-raised); color: var(--text); font-size: 12px; line-height: 1.75; }
+.gus-preview-message.is-assistant .gus-ai-markdown p { padding: 0; border: 0; background: transparent; font-size: inherit; line-height: inherit; }
