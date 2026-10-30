@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Bot,
   BookOpenText,
+  LoaderCircle,
   MessageSquare,
   Plus,
   Send,
@@ -12,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { sendGusAiMessage } from "@/lib/gus-ai-client";
 
 type ChatRole = "user" | "assistant";
 
@@ -30,6 +32,12 @@ type ChatConversation = {
   messages: ChatMessage[];
 };
 
+type RequestError = {
+  conversationId: string;
+  prompt: string;
+  message: string;
+};
+
 const STORAGE_KEY = "qn-gus-ai-conversations-v1";
 const examplePrompts = [
   "Temukan ayat tentang kesabaran",
@@ -45,7 +53,7 @@ function createId(): string {
 }
 
 function shortTitle(value: string): string {
-  const title = value.trim().replace(/\s+/g, " ");
+  const title = value.trim().replace(/\\s+/g, " ");
   return title.length > 38 ? `${title.slice(0, 38)}…` : title || "Percakapan baru";
 }
 
@@ -67,6 +75,8 @@ export function GusAiPage() {
   const [draft, setDraft] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [requestError, setRequestError] = useState<RequestError | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +95,6 @@ export function GusAiPage() {
           }
         }
       } catch {
-        // If local history is malformed, start with an empty list and keep the page usable.
         setConversations([]);
         setActiveId(null);
       } finally {
@@ -110,11 +119,12 @@ export function GusAiPage() {
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [activeConversation?.messages.length]);
+  }, [activeConversation?.messages.length, isSending]);
 
   function startNewChat() {
     setActiveId(null);
     setDraft("");
+    setRequestError(null);
     setHistoryOpen(false);
     composerRef.current?.focus();
   }
@@ -123,12 +133,44 @@ export function GusAiPage() {
     const remaining = conversations.filter((conversation) => conversation.id !== id);
     setConversations(remaining);
     if (activeId === id) setActiveId(remaining[0]?.id ?? null);
+    if (requestError?.conversationId === id) setRequestError(null);
+  }
+
+  async function requestAnswer(message: string, conversationId: string) {
+    setIsSending(true);
+    setRequestError(null);
+
+    try {
+      const answer = await sendGusAiMessage(message);
+      const now = new Date().toISOString();
+      const assistantMessage: ChatMessage = {
+        id: createId(),
+        role: "assistant",
+        content: answer,
+        createdAt: now,
+      };
+      setConversations((items) =>
+        items.map((item) =>
+          item.id === conversationId
+            ? { ...item, updatedAt: now, messages: [...item.messages, assistantMessage] }
+            : item,
+        ),
+      );
+    } catch (error) {
+      setRequestError({
+        conversationId,
+        prompt: message,
+        message: error instanceof Error ? error.message : "Gus AI belum dapat menjawab. Silakan coba lagi.",
+      });
+    } finally {
+      setIsSending(false);
+    }
   }
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = draft.trim();
-    if (!content) return;
+    if (!content || isSending) return;
 
     const now = new Date().toISOString();
     const conversation = activeConversation;
@@ -139,20 +181,13 @@ export function GusAiPage() {
       content,
       createdAt: now,
     };
-    const assistantMessage: ChatMessage = {
-      id: createId(),
-      role: "assistant",
-      content:
-        "Terima kasih, pertanyaanmu sudah tersimpan di riwayat. Gus AI masih dalam tahap pratinjau dan belum terhubung ke model AI, sehingga saya belum dapat memberikan jawaban atau rujukan ayat secara otomatis. Setelah backend diaktifkan, bagian ini dapat menjawab dengan rujukan surah dan ayat yang bisa diperiksa kembali.",
-      createdAt: now,
-    };
 
     if (conversation) {
       const updated: ChatConversation = {
         ...conversation,
         title: conversation.messages.length === 0 ? shortTitle(content) : conversation.title,
         updatedAt: now,
-        messages: [...conversation.messages, userMessage, assistantMessage],
+        messages: [...conversation.messages, userMessage],
       };
       setConversations((items) => [updated, ...items.filter((item) => item.id !== id)]);
     } else {
@@ -161,17 +196,25 @@ export function GusAiPage() {
         title: shortTitle(content),
         createdAt: now,
         updatedAt: now,
-        messages: [userMessage, assistantMessage],
+        messages: [userMessage],
       };
       setConversations((items) => [next, ...items]);
     }
 
     setActiveId(id);
     setDraft("");
+    setRequestError(null);
     setHistoryOpen(false);
+    void requestAnswer(content, id);
+  }
+
+  function retryFailedMessage() {
+    if (!requestError || isSending) return;
+    void requestAnswer(requestError.prompt, requestError.conversationId);
   }
 
   const messages = activeConversation?.messages ?? [];
+  const visibleError = requestError?.conversationId === activeId ? requestError : null;
 
   return (
     <section className="gus-chat-page" aria-label="Halaman Gus AI">
@@ -192,7 +235,7 @@ export function GusAiPage() {
           ) : (
             conversations.map((conversation) => (
               <div className={`gus-history-entry${conversation.id === activeId ? " is-active" : ""}`} key={conversation.id}>
-                <button type="button" className="gus-history-entry-main" onClick={() => { setActiveId(conversation.id); setHistoryOpen(false); }}>
+                <button type="button" className="gus-history-entry-main" onClick={() => { setActiveId(conversation.id); setRequestError(null); setHistoryOpen(false); }}>
                   <MessageSquare size={15} />
                   <span><strong>{conversation.title}</strong><small>{formatDate(conversation.updatedAt)}</small></span>
                 </button>
@@ -213,7 +256,7 @@ export function GusAiPage() {
           <button type="button" className="gus-history-toggle" onClick={() => setHistoryOpen((open) => !open)} aria-expanded={historyOpen}>
             <MessageSquare size={16} /> Riwayat
           </button>
-          <div className="gus-chat-title"><span className="gus-chat-title-icon"><Bot size={17} /></span><span>Gus AI</span><span className="preview-badge">Pratinjau</span></div>
+          <div className="gus-chat-title"><span className="gus-chat-title-icon"><Bot size={17} /></span><span>Gus AI</span><span className="preview-badge">AI</span></div>
           <Link href="/" className="gus-back-reader"><BookOpenText size={15} /> Baca Al-Qur&apos;an</Link>
         </div>
 
@@ -234,17 +277,26 @@ export function GusAiPage() {
                 </div>
               </div>
             ) : (
-              <div className="gus-chat-messages">
+              <div className="gus-chat-messages" aria-live="polite">
                 <div className="gus-chat-conversation-heading"><h1>{activeConversation?.title}</h1><p>Riwayat ini tersimpan secara lokal di browser.</p></div>
                 {messages.map((message) => (
                   <article className={`gus-chat-message is-${message.role}`} key={message.id}>
                     {message.role === "assistant" && <span className="gus-message-avatar"><Bot size={17} /></span>}
                     <div className="gus-message-body">
-                      <div className="gus-message-role">{message.role === "user" ? "Kamu" : "Gus AI · Pratinjau"}<time>{formatTime(message.createdAt)}</time></div>
+                      <div className="gus-message-role">{message.role === "user" ? "Kamu" : "Gus AI"}<time>{formatTime(message.createdAt)}</time></div>
                       <p>{message.content}</p>
                     </div>
                   </article>
                 ))}
+                {isSending && activeId && (
+                  <article className="gus-chat-message is-assistant" aria-label="Gus AI sedang mengetik">
+                    <span className="gus-message-avatar"><Bot size={17} /></span>
+                    <div className="gus-message-body">
+                      <div className="gus-message-role">Gus AI</div>
+                      <p className="gus-typing-status"><LoaderCircle size={14} /> Sedang menyusun jawaban…</p>
+                    </div>
+                  </article>
+                )}
                 <div ref={messageEndRef} />
               </div>
             )}
@@ -252,7 +304,13 @@ export function GusAiPage() {
         </div>
 
         <div className="gus-chat-composer-wrap">
-          <div className="gus-chat-preview-notice"><AlertCircle size={15} /><span>Mode pratinjau. Backend AI belum aktif; respons saat ini hanya pemberitahuan, bukan tafsir atau jawaban agama.</span></div>
+          <div className="gus-chat-preview-notice"><AlertCircle size={15} /><span>Jawaban AI dapat keliru atau kurang lengkap. Periksa kembali rujukan ayat, terjemahan, dan tafsir melalui sumber tepercaya.</span></div>
+          {visibleError && (
+            <div className="gus-chat-error" role="alert">
+              <span>{visibleError.message}</span>
+              <button type="button" onClick={retryFailedMessage} disabled={isSending}>Coba lagi</button>
+            </div>
+          )}
           <form className="gus-chat-composer" onSubmit={submitMessage}>
             <label className="sr-only" htmlFor="gus-chat-input">Kirim pertanyaan kepada Gus AI</label>
             <textarea
@@ -269,9 +327,11 @@ export function GusAiPage() {
                 }
               }}
             />
-            <button type="submit" disabled={!draft.trim()} aria-label="Kirim pesan"><Send size={17} /></button>
+            <button type="submit" disabled={!draft.trim() || isSending} aria-label="Kirim pesan">
+              {isSending ? <LoaderCircle size={17} className="gus-send-spinner" /> : <Send size={17} />}
+            </button>
           </form>
-          <p className="gus-chat-disclaimer">Periksa kembali rujukan Al-Qur&apos;an, terjemahan, dan tafsir melalui sumber tepercaya.</p>
+          <p className="gus-chat-disclaimer">Gus AI membantu eksplorasi awal, bukan pengganti tafsir, fatwa, atau bimbingan ahli agama.</p>
         </div>
       </div>
     </section>
